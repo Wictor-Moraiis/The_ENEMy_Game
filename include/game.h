@@ -1,13 +1,9 @@
 #ifndef GAME_H
 #define GAME_H
 
-#define MAX_LIVES 3
+#include "types.h"
 
-typedef enum {
-    DIFICULDADE_FACIL,
-    DIFICULDADE_MEDIA,
-    DIFICULDADE_DIFICIL
-} Dificuldade;
+#define MAX_LIVES 3
 
 typedef struct {
     char pergunta[256];
@@ -16,7 +12,8 @@ typedef struct {
     Dificuldade dificuldade;
 } Questao;
 
-void iniciar_tutorial();
-void iniciar_nivel(int nivel);
+// Protótipos de fluxo de jogo
+void ExecutarJogo();
+void IniciarTutorial();
 
 #endif

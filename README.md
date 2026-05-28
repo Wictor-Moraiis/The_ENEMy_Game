@@ -21,73 +21,60 @@ No **The ENEMy Game**, os ataques são realizados através de um quiz.
     *   **Difícil:** Causa dano crítico (alta porcentagem).
 *   **Defesa e Vidas:** Você possui vidas limitadas. Cada erro nas questões resulta em perda de HP/Vida. Se suas vidas chegarem a zero, o jogo acaba.
 
-## 📁 Estrutura do Projeto
+## 📁 Estrutura do Projeto (Refatorado)
 
-A organização das pastas segue o padrão abaixo para facilitar o desenvolvimento e a inclusão de novos conteúdos:
+*   `src/`:
+    *   `main.c`: Inicialização da Raylib e Splash Screen.
+    *   `game.c`: Lógica de fluxo do jogo e níveis.
+    *   `scenario.c`: Core da Engine de Cenários.
+*   `include/`:
+    *   `types.h`: Definições globais de enums e structs básicas.
+    *   `game.h`: Constantes e protótipos do jogo.
+    *   `scenario.h`: Definições e funções da engine de cenários.
 
-*   `src/`: Contém todo o código-fonte em C (`.c`).
-*   `include/`: Contém os arquivos de cabeçalho (`.h`).
-*   `assets/`: Arquivos de mídia do jogo.
-    *   `assets/graphics/`: Pasta destinada às **pixel arts** e sprites.
-    *   `assets/audio/`: Pasta para trilhas sonoras e efeitos sonoros.
-*   `data/`: Banco de dados das questões e configurações de níveis (arquivos `.txt` ou `.csv`).
-*   `build/`: Pasta para os arquivos binários resultantes da compilação (geralmente ignorada pelo controle de versão).
+## 🎬 Engine de Cenários
 
-## 🎨 Como Adicionar Conteúdo
+A engine permite criar cutscenes e quizzes de forma programática.
 
-### Pixel Arts
-Para adicionar novas artes ao jogo, coloque os arquivos de imagem (preferencialmente `.png` para manter transparência) na pasta `assets/graphics/`.
+### Como Criar uma Cena
+No arquivo `src/game.c`, você pode criar um novo cenário e encadear ações:
 
-### Questões do Quiz
-As questões devem ser formatadas e inseridas nos arquivos dentro da pasta `data/`. Siga o padrão estabelecido nos arquivos de exemplo para garantir que o motor do jogo consiga lê-las corretamente.
+```c
+Scenario cena = CreateScenario();
+
+// Adicionar um diálogo
+AddSpeak(&cena, "Nome", "Texto do diálogo");
+
+// Adicionar uma pergunta
+const char* opcoes[] = {"A", "B", "C", "D"};
+AddQuestion(&cena, "Pergunta?", opcoes, 0, 1); // (Cena, Pergunta, Opções, Índice Correto, Nível)
+```
+
+### Como Executar
+No seu loop principal ou função de fase:
+```c
+while (!IsScenarioFinished(&cena)) {
+    BeginDrawing();
+        UpdateAndDrawScenario(&cena);
+    EndDrawing();
+}
+```
+
+*Nota: A funcionalidade de **Skip (Tecla S)** é automática e padrão para todos os cenários.*
 
 ---
 
 ## 🚀 Como Compilar e Rodar
 
-Este projeto utiliza a linguagem C e a biblioteca **Raylib** para a interface gráfica e áudio. Abaixo estão as instruções detalhadas para configurar seu ambiente no macOS e no Windows.
-
 ### 🍎 macOS
-
-**1. Instalar Dependências (via Homebrew)**
-Se você não tem o Homebrew, instale-o primeiro. Depois, instale o compilador GCC e a biblioteca Raylib:
 ```bash
-brew install gcc raylib
+gcc src/main.c src/game.c src/scenario.c -I include -I /opt/homebrew/include -L /opt/homebrew/lib -lraylib -o build/the_enemy_game
 ```
 
-**2. Compilar**
-No terminal, na raiz do projeto, execute:
+### 🪟 Windows (MSYS2)
 ```bash
-gcc src/main.c -I include -I /opt/homebrew/include -L /opt/homebrew/lib -lraylib -o build/the_enemy_game
+gcc src/main.c src/game.c src/scenario.c -I include -lraylib -lgdi32 -lwinmm -o build/the_enemy_game.exe
 ```
-
-**3. Rodar**
-```bash
-./build/the_enemy_game
-```
-
----
-
-### 🪟 Windows
-
-Para compilar no Windows, recomendamos o uso do **MSYS2** (MinGW-w64), que fornece um ambiente de desenvolvimento semelhante ao Linux.
-
-**1. Instalar o MSYS2**
-Baixe e instale o MSYS2 do site oficial: [msys2.org](https://www.msys2.org/).
-
-**2. Instalar Dependências**
-Abra o terminal **MSYS2 MinGW 64-bit** e instale a toolchain do GCC e a Raylib:
-```bash
-pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-raylib
-```
-*(Aperte `Y` quando for solicitado para confirmar a instalação)*
-
-**3. Compilar**
-Abra o terminal **MSYS2 MinGW 64-bit**, navegue até a pasta do projeto e execute:
-```bash
-gcc src/main.c -I include -lraylib -lgdi32 -lwinmm -o build/the_enemy_game.exe
-```
-*(Nota: As flags `-lgdi32` e `-lwinmm` são necessárias no Windows para gráficos e áudio).*
 
 **4. Rodar**
 ```bash
