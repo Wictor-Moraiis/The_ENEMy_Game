@@ -2,6 +2,7 @@
 #define SCENARIO_H
 
 #include "raylib.h"
+#include "character.h"
 #include <stdbool.h>
 
 #define MAX_ACTIONS 100
@@ -13,7 +14,7 @@ typedef enum {
 } ActionType;
 
 typedef struct {
-    char person[64];
+    CharacterID charId;
     char text[512];
 } SpeakAction;
 
@@ -37,11 +38,16 @@ typedef struct {
     int actionCount;
     int currentAction;
     bool completed;
+    
+    // Controle de Texto Dinâmico
+    int textProgress;
+    float textTimer;
+    bool isTextEffectDone;
 } Scenario;
 
 // Construtores e Manipuladores
 Scenario CreateScenario();
-void AddSpeak(Scenario* s, const char* person, const char* text);
+void AddSpeak(Scenario* s, CharacterID charId, const char* text);
 void AddQuestion(Scenario* s, const char* question, const char* options[MAX_OPTIONS], int correctIndex, int level);
 
 // Execução

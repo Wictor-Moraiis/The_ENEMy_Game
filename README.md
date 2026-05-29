@@ -68,12 +68,12 @@ while (!IsScenarioFinished(&cena)) {
 
 ### 🍎 macOS
 ```bash
-gcc src/main.c src/game.c src/scenario.c -I include -I /opt/homebrew/include -L /opt/homebrew/lib -lraylib -o build/the_enemy_game
+gcc src/*.c -I include -I /opt/homebrew/include -L /opt/homebrew/lib -lraylib -o build/the_enemy_game
 ```
 
 ### 🪟 Windows (MSYS2)
 ```bash
-gcc src/main.c src/game.c src/scenario.c -I include -lraylib -lgdi32 -lwinmm -o build/the_enemy_game.exe
+gcc src/*.c -I include -lraylib -lgdi32 -lwinmm -o build/the_enemy_game.exe
 ```
 
 **4. Rodar**
