@@ -16,6 +16,7 @@ typedef enum {
     CHAR_CONSCIENCIA,
     CHAR_VOZ_GRAVE,
     CHAR_MASCARA_ARTES,
+    CHAR_ELLIE
     // Adicione novos IDs aqui
 } CharacterID;
 

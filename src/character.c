@@ -16,7 +16,10 @@ void InitCharacters() {
     // Carrega a textura se o caminho não for vazio
     characters[2].texture = LoadTexture(characters[2].imagePath);
 
-    charCount = 3;
+    characters[3] = (Character){CHAR_ELLIE, "Ellie", "assets/graphics/ellie_front.png", {0}};
+    characters[3].texture = LoadTexture(characters[3].imagePath);
+
+    charCount = 4;
 }
 
 Character* GetCharacter(CharacterID id) {
