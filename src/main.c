@@ -136,7 +136,7 @@ int main() {
                 }
             }
             else if (currentScreen == SCREEN_NEW_GAME) {
-                const char* title = "COMO SE CHAMA, ELLIE?";
+                const char* title = "COM QUE NOME DESEJA SALVAR O GAME?";
                 DrawText(title, sw/2 - MeasureText(title, 25)/2, sh/2 - 70, 25, GOLD);
                 DrawRectangle(sw/2 - 200, sh/2 - 20, 400, 50, DARKGRAY);
                 DrawRectangleLines(sw/2 - 200, sh/2 - 20, 400, 50, WHITE);

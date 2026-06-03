@@ -15,7 +15,7 @@ void IniciarTutorial() {
     AddSpeak(&tutorial, CHAR_CONSCIENCIA, "Sua mente está exausta. A prova é amanhã.");
 
     const char* opts1[] = {"Fechar os olhos", "Tomar café", "Estudar mais", "Desistir"};
-    AddQuestion(&tutorial, "O que você decide fazer agora?", opts1, 0, 1);
+    AddQuestion(&tutorial, "O que você decide fazer agora? (Utilize números ou clique para selecionar)", opts1, 0, 1);
 
     AddSpeak(&tutorial, CHAR_VOZ_GRAVE, "BEM-VINDA, ELLIE.");
     AddSpeak(&tutorial, CHAR_VOZ_GRAVE, "ESTE É O SEU SUBCONSCIENTE. O CAMPO DE BATALHA FINAL.");
@@ -24,9 +24,6 @@ void IniciarTutorial() {
     
     AddSpeak(&tutorial, CHAR_MASCARA_ARTES, "Ellie, para passar por mim, você deve entender a estética.");
     AddSpeak(&tutorial, CHAR_MASCARA_ARTES, "Selecione a opção correta para avançar.");
-
-    const char* optsArtes[] = {"Modernismo", "Barroco", "Renascimento", "Surrealismo"};
-    AddQuestion(&tutorial, "Qual movimento artístico brasileiro teve como marco a Semana de 22?", optsArtes, 0, 1);
 
     AddBackground(&tutorial, ""); // Volta para tela preta
     AddSpeak(&tutorial, CHAR_VOZ_GRAVE, "AQUI, A CANETA NÃO É SUA ARMA. SEU CONHECIMENTO É, ELLIE.");
@@ -55,8 +52,6 @@ void IniciarTutorial() {
         EndDrawing();
         if (IsKeyPressed(KEY_ENTER)) break;
     }
-
-    StartBattle(CHAR_MATH_ENEMY, DIFICULDADE_FACIL);
 }
 
 void IniciarNivel1() {
@@ -65,9 +60,7 @@ void IniciarNivel1() {
     AddSpeak(&lvl1, CHAR_VOZ_GRAVE, "Nível 1: Linguagens e Ciências Humanas.");
     AddSpeak(&lvl1, CHAR_MASCARA_ARTES, "Vamos ver se você realmente aprendeu sobre o Modernismo, Ellie.");
 
-    const char* opts[] = {"Tarsila do Amaral", "Anita Malfatti", "Oswald de Andrade", "Todas as anteriores"};
-    AddQuestion(&lvl1, "Quem foram os artistas centrais da Semana de Arte Moderna?", opts, 3, 2);
-
+    StartBattle(CHAR_MASCARA_ARTES, DIFICULDADE_FACIL);
     while (!WindowShouldClose()) {
         if (IsScenarioFinished(&lvl1)) break;
         BeginDrawing();
@@ -79,9 +72,9 @@ void IniciarNivel1() {
 
 void IniciarNivel2() {
     Scenario lvl2 = CreateScenario();
-    AddBackground(&lvl2, ""); // Tela preta para foco
-    AddSpeak(&lvl2, CHAR_VOZ_GRAVE, "Nível 2: Ciências da Natureza e Matemática.");
-    AddSpeak(&lvl2, CHAR_CONSCIENCIA, "Sinto uma presença forte vindo da floresta...");
+    AddBackground(&lvl2, "");
+    AddSpeak(&lvl2, CHAR_VOZ_GRAVE, "Nível 2: Parabéns, você conseguir avançar");
+    AddSpeak(&lvl2, CHAR_VOZ_GRAVE, "Sinto uma presença forte vindo da floresta...");
 
     while (!WindowShouldClose()) {
         if (IsScenarioFinished(&lvl2)) break;
@@ -90,9 +83,7 @@ void IniciarNivel2() {
         EndDrawing();
     }
     UnloadScenarioResources(&lvl2);
-
-    // Batalha contra Boss da Natureza
-    StartBattle(CHAR_NATUREZA_BOSS, DIFICULDADE_DIFICIL);
+    StartBattle(CHAR_NATUREZA_BOSS, DIFICULDADE_MEDIA);
 }
 
 void ExecutarJogo(PlayerStats* player, int slot) {
