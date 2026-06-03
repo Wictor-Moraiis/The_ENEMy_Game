@@ -1,7 +1,0 @@
-# Modelo de Questão (Exemplo)
-# Dificuldade: F (Fácil), M (Médio), D (Difícil)
-# Formato: Dificuldade|Pergunta|OpçãoA|OpçãoB|OpçãoC|OpçãoD|RespostaCorreta(A/B/C/D)
-
-F|Qual é a capital do Brasil?|São Paulo|Brasília|Rio de Janeiro|Salvador|B
-M|Em que ano começou a Segunda Guerra Mundial?|1914|1939|1945|1918|B
-D|Qual é o valor da constante de Planck aproximada?|6.626e-34|3.1415|9.81|1.602e-19|A

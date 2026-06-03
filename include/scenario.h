@@ -53,6 +53,14 @@ typedef struct {
     int textProgress;
     float textTimer;
     bool isTextEffectDone;
+
+    // Controle de Feedback de Questões
+    bool showFeedback;
+    int lastChoice;
+    float feedbackTimer;
+
+    // Persistência de Personagem no Cenário
+    CharacterID lastCharId;
 } Scenario;
 
 // Construtores e Manipuladores

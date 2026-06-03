@@ -2,6 +2,7 @@
 #include "game.h"
 #include "character.h"
 #include "player.h"
+#include "questions.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -10,9 +11,11 @@ typedef enum { SCREEN_SPLASH, SCREEN_SAVE_SELECT, SCREEN_NEW_GAME, SCREEN_GAME }
 int main() {
     const int screenWidth = 800;
     const int screenHeight = 450;
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(screenWidth, screenHeight, "The ENEMy Game - O Despertar");
     InitAudioDevice();
     InitCharacters();
+    InitQuestionDatabase();
 
     Texture2D logo = LoadTexture("assets/graphics/logo.png");
     Music music = LoadMusicStream("assets/audio/main_song.mp3");
@@ -28,9 +31,11 @@ int main() {
     char inputName[MAX_NAME_LENGTH] = "\0";
     int letterCount = 0;
     int key = 0;
+    int keySlot = -1;
 
     while (!WindowShouldClose()) {
         UpdateMusicStream(music);
+        if (IsKeyPressed(KEY_F11)) ToggleFullscreen();
 
         switch (currentScreen) {
             case SCREEN_SPLASH:
@@ -41,9 +46,19 @@ int main() {
                 break;
             
             case SCREEN_SAVE_SELECT:
+                // Suporte ao Teclado (1-5)
+                keySlot = -1;
+                if (IsKeyPressed(KEY_ONE)) keySlot = 0;
+                else if (IsKeyPressed(KEY_TWO)) keySlot = 1;
+                else if (IsKeyPressed(KEY_THREE)) keySlot = 2;
+                else if (IsKeyPressed(KEY_FOUR)) keySlot = 3;
+                else if (IsKeyPressed(KEY_FIVE)) keySlot = 4;
+
                 for (int i = 0; i < MAX_SAVES; i++) {
                     Rectangle rect = { 200, (float)(100 + i * 60), 400, 50 };
-                    if (CheckCollisionPointRec(GetMousePosition(), rect) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                    bool mouseClick = (CheckCollisionPointRec(GetMousePosition(), rect) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON));
+                    
+                    if (mouseClick || keySlot == i) {
                         selectedSlot = i;
                         if (saves[i].active) {
                             currentPlayer = saves[i];
@@ -81,8 +96,8 @@ int main() {
                 StopMusicStream(music);
                 UnloadMusicStream(music);
                 UnloadTexture(logo);
-                IniciarTutorial();
-                // Após o tutorial, voltamos ou fechamos (por enquanto fecha para simplificar)
+                ExecutarJogo(&currentPlayer, selectedSlot);
+                // Após o jogo, voltamos ou fechamos
                 goto cleanup;
                 break;
         }
@@ -90,32 +105,44 @@ int main() {
         BeginDrawing();
             ClearBackground(BLACK);
             
+            int sw = GetScreenWidth();
+            int sh = GetScreenHeight();
+
             if (currentScreen == SCREEN_SPLASH) {
-                if (logo.id > 0) DrawTextureEx(logo, (Vector2){250, 100}, 0, 2.0f, WHITE);
-                else DrawText("THE ENEMy GAME", 280, 200, 30, GOLD);
-                DrawText("Pressione QUALQUER TECLA", 260, 380, 20, LIGHTGRAY);
+                if (logo.id > 0) {
+                    float scale = 2.0f;
+                    DrawTextureEx(logo, (Vector2){(float)sw/2 - (logo.width * scale)/2, (float)sh/2 - 100}, 0, scale, WHITE);
+                } else {
+                    const char* title = "THE ENEMy GAME";
+                    DrawText(title, sw/2 - MeasureText(title, 30)/2, sh/2 - 20, 30, GOLD);
+                }
+                const char* msg = "Pressione QUALQUER TECLA";
+                DrawText(msg, sw/2 - MeasureText(msg, 20)/2, sh - 70, 20, LIGHTGRAY);
             } 
             else if (currentScreen == SCREEN_SAVE_SELECT) {
-                DrawText("SELECIONE SEU PERFIL", 250, 40, 25, GOLD);
+                const char* title = "SELECIONE SEU PERFIL";
+                DrawText(title, sw/2 - MeasureText(title, 25)/2, 40, 25, GOLD);
                 for (int i = 0; i < MAX_SAVES; i++) {
-                    Rectangle rect = { 200, (float)(100 + i * 60), 400, 50 };
+                    Rectangle rect = { (float)sw/2 - 200, (float)(100 + i * 60), 400, 50 };
                     bool hover = CheckCollisionPointRec(GetMousePosition(), rect);
                     DrawRectangleRec(rect, hover ? DARKGRAY : BLACK);
                     DrawRectangleLinesEx(rect, 2, hover ? GOLD : GRAY);
                     
                     char label[64];
-                    if (saves[i].active) sprintf(label, "SLOT %d: %s (Nivel %d)", i + 1, saves[i].name, saves[i].level);
+                    if (saves[i].active) sprintf(label, "SLOT %d: %s (Nível %d)", i + 1, saves[i].name, saves[i].level);
                     else sprintf(label, "SLOT %d: [ NOVO JOGO ]", i + 1);
                     
                     DrawText(label, (int)rect.x + 20, (int)rect.y + 15, 20, WHITE);
                 }
             }
             else if (currentScreen == SCREEN_NEW_GAME) {
-                DrawText("COMO SE CHAMA, ESTUDANTE?", 200, 150, 25, GOLD);
-                DrawRectangle(200, 200, 400, 50, DARKGRAY);
-                DrawRectangleLines(200, 200, 400, 50, WHITE);
-                DrawText(inputName, 220, 215, 20, RAYWHITE);
-                DrawText("Pressione ENTER para despertar", 250, 300, 15, GRAY);
+                const char* title = "COMO SE CHAMA, ELLIE?";
+                DrawText(title, sw/2 - MeasureText(title, 25)/2, sh/2 - 70, 25, GOLD);
+                DrawRectangle(sw/2 - 200, sh/2 - 20, 400, 50, DARKGRAY);
+                DrawRectangleLines(sw/2 - 200, sh/2 - 20, 400, 50, WHITE);
+                DrawText(inputName, sw/2 - 180, sh/2 - 5, 20, RAYWHITE);
+                const char* msg = "Pressione ENTER para despertar";
+                DrawText(msg, sw/2 - MeasureText(msg, 15)/2, sh/2 + 80, 15, GRAY);
             }
 
         EndDrawing();

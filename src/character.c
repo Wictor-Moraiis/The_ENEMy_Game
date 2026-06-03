@@ -6,7 +6,7 @@ static int charCount = 0;
 
 void InitCharacters() {
     // Personagem: Consciência (Sem imagem)
-    characters[0] = (Character){CHAR_CONSCIENCIA, "Consciencia", "", {0}};
+    characters[0] = (Character){CHAR_CONSCIENCIA, "Consciência", "", {0}};
     
     // Personagem: Voz Grave (Sem imagem)
     characters[1] = (Character){CHAR_VOZ_GRAVE, "Voz Grave", "", {0}};
@@ -19,7 +19,13 @@ void InitCharacters() {
     characters[3] = (Character){CHAR_ELLIE, "Ellie", "assets/graphics/ellie_front.png", {0}};
     characters[3].texture = LoadTexture(characters[3].imagePath);
 
-    charCount = 4;
+    characters[4] = (Character){CHAR_MATH_ENEMY, "Inimigo de Matemática", "assets/graphics/math-enemy.png", {0}};
+    characters[4].texture = LoadTexture(characters[4].imagePath);
+
+    characters[5] = (Character){CHAR_NATUREZA_BOSS, "Boss da Natureza", "assets/graphics/natureza_booss.png", {0}};
+    characters[5].texture = LoadTexture(characters[5].imagePath);
+
+    charCount = 6;
 }
 
 Character* GetCharacter(CharacterID id) {

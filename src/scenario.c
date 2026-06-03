@@ -5,6 +5,7 @@
 #define TEXT_SPEED 0.03f
 #define BOX_MARGIN 50
 #define BOX_PADDING 20
+#define FEEDBACK_DURATION 1.5f // Tempo que a resposta correta/errada fica na tela
 
 Scenario CreateScenario() {
     Scenario s = {0};
@@ -16,6 +17,10 @@ Scenario CreateScenario() {
     s.isTextEffectDone = false;
     s.currentBg = (Texture2D){0};
     strcpy(s.currentBgPath, "");
+    s.showFeedback = false;
+    s.lastChoice = -1;
+    s.feedbackTimer = 0;
+    s.lastCharId = CHAR_NONE;
     return s;
 }
 
@@ -78,6 +83,27 @@ static void DrawWrappedText(const char* text, int x, int y, int maxWidth, int fo
     }
 }
 
+static void DrawCharacter(CharacterID charId, bool isQuestion) {
+    if (charId == CHAR_NONE) return;
+    Character* character = GetCharacter(charId);
+    if (!character || character->texture.id <= 0) return;
+
+    int sw = GetScreenWidth();
+    int sh = GetScreenHeight();
+    float scale = (charId == CHAR_ELLIE) ? 1.0f : 4.0f;
+    
+    // Se for pergunta, posiciona mais à direita e sem a caixa de diálogo
+    Vector2 pos;
+    if (isQuestion) {
+        pos = (Vector2){ (float)sw - (character->texture.width * scale) - 20, (float)sh - (character->texture.height * scale) - 20 };
+    } else {
+        // Altura estimada da caixa de diálogo (120-150px)
+        pos = (Vector2){ (float)sw - (character->texture.width * scale) - 50, (float)sh - 120 - (character->texture.height * scale) - 20 };
+    }
+    
+    DrawTextureEx(character->texture, pos, 0.0f, scale, WHITE);
+}
+
 static void DrawSpeakUI(Scenario* s, SpeakAction* speak) {
     int screenWidth = GetScreenWidth();
     int screenHeight = GetScreenHeight();
@@ -96,16 +122,7 @@ static void DrawSpeakUI(Scenario* s, SpeakAction* speak) {
         }
     }
 
-    if (character && character->texture.id > 0) {
-        float scale = 4.0f;
-        int maxWidth = screenWidth - (BOX_MARGIN * 2) - (BOX_PADDING * 2);
-        int fontSize = 20;
-        int lineCount = 1 + (int)(strlen(speak->text) * 10 / maxWidth);
-        int boxHeight = (lineCount * (fontSize + 5)) + (BOX_PADDING * 2) + 30;
-        if (boxHeight < 120) boxHeight = 120;
-        Vector2 pos = { (float)screenWidth - (character->texture.width * scale) - 50, (float)screenHeight - boxHeight - (character->texture.height * scale) - 20 };
-        DrawTextureEx(character->texture, pos, 0.0f, scale, WHITE);
-    }
+    DrawCharacter(speak->charId, false);
     
     int maxWidth = screenWidth - (BOX_MARGIN * 2) - (BOX_PADDING * 2);
     int fontSize = 20;
@@ -121,20 +138,47 @@ static void DrawSpeakUI(Scenario* s, SpeakAction* speak) {
     if (s->isTextEffectDone) DrawText("Pressione [ENTER]", (int)box.x + (int)box.width - 130, (int)box.y + (int)box.height - 20, 12, GRAY);
 }
 
-static void DrawQuestionUI(QuestionAction* q) {
-    int screenWidth = GetScreenWidth();
-    DrawText(q->question, 50, 100, 22, WHITE);
+static void DrawQuestionUI(Scenario* s, QuestionAction* q) {
+    int sw = GetScreenWidth();
+    int sh = GetScreenHeight();
+
+    DrawCharacter(s->lastCharId, true);
+
+    DrawText(q->question, 50, sh/4, 22, WHITE);
     char levelText[20];
     sprintf(levelText, "Nível: %d", q->level);
-    DrawText(levelText, screenWidth - 100, 20, 15, RED);
+    DrawText(levelText, sw - 120, 20, 15, RED);
+
     for (int i = 0; i < MAX_OPTIONS; i++) {
-        Rectangle rect = { 50, (float)(180 + i * 50), (float)(screenWidth - 100), 40 };
+        Rectangle rect = { 50, (float)(sh/4 + 80 + i * 55), (float)(sw - 100), 45 };
         bool mouseOver = CheckCollisionPointRec(GetMousePosition(), rect);
-        DrawRectangleRec(rect, mouseOver ? DARKGRAY : BLACK);
-        DrawRectangleLinesEx(rect, 1, mouseOver ? GOLD : GRAY);
+        
+        Color boxColor = BLACK;
+        Color outlineColor = GRAY;
+        Color textColor = WHITE;
+
+        if (s->showFeedback) {
+            if (i == q->correctIndex) {
+                boxColor = Fade(GREEN, 0.6f);
+                outlineColor = GREEN;
+                textColor = WHITE;
+            } else if (i == s->lastChoice) {
+                boxColor = Fade(RED, 0.6f);
+                outlineColor = RED;
+                textColor = WHITE;
+            }
+        } else if (mouseOver) {
+            boxColor = DARKGRAY;
+            outlineColor = GOLD;
+            textColor = GOLD;
+        }
+
+        DrawRectangleRec(rect, boxColor);
+        DrawRectangleLinesEx(rect, 1, outlineColor);
+        
         char optionText[150];
-        sprintf(optionText, "%d. %s", i + 1, q->options[i]);
-        DrawText(optionText, (int)rect.x + 20, (int)rect.y + 10, 18, WHITE);
+        sprintf(optionText, "[%d] %s", i + 1, q->options[i]);
+        DrawText(optionText, (int)rect.x + 20, (int)rect.y + 10, 18, textColor);
     }
 }
 
@@ -144,7 +188,29 @@ void UpdateAndDrawScenario(Scenario* s) {
         return;
     }
 
-    // Desenha o fundo atual antes de qualquer coisa
+    // Processar todas as mudanças de background sequenciais e atualizar lastCharId
+    while (s->currentAction < s->actionCount) {
+        ScenarioAction* current = &s->actions[s->currentAction];
+        if (current->type == ACTION_BACKGROUND) {
+            if (s->currentBg.id > 0) UnloadTexture(s->currentBg);
+            if (strlen(current->data.background.imagePath) > 0) {
+                s->currentBg = LoadTexture(current->data.background.imagePath);
+                strcpy(s->currentBgPath, current->data.background.imagePath);
+            } else {
+                s->currentBg = (Texture2D){0};
+                strcpy(s->currentBgPath, "");
+            }
+            s->currentAction++;
+        } else {
+            break;
+        }
+    }
+
+    if (s->currentAction >= s->actionCount) {
+        s->completed = true;
+        return;
+    }
+
     if (s->currentBg.id > 0) {
         DrawTexturePro(s->currentBg, (Rectangle){0, 0, (float)s->currentBg.width, (float)s->currentBg.height},
                        (Rectangle){0, 0, (float)GetScreenWidth(), (float)GetScreenHeight()}, (Vector2){0, 0}, 0, WHITE);
@@ -158,25 +224,8 @@ void UpdateAndDrawScenario(Scenario* s) {
     }
 
     ScenarioAction* current = &s->actions[s->currentAction];
-
-    // Lógica para Troca de Background (Ação Instantânea)
-    if (current->type == ACTION_BACKGROUND) {
-        if (s->currentBg.id > 0) UnloadTexture(s->currentBg);
-        
-        if (strlen(current->data.background.imagePath) > 0) {
-            s->currentBg = LoadTexture(current->data.background.imagePath);
-            strcpy(s->currentBgPath, current->data.background.imagePath);
-        } else {
-            s->currentBg = (Texture2D){0};
-            strcpy(s->currentBgPath, "");
-        }
-        s->currentAction++;
-        return; // Processa na próxima iteração o próximo passo
-    }
-
-    DrawText("Pressione [S] para pular", GetScreenWidth() - 160, 10, 10, DARKGRAY);
-
     if (current->type == ACTION_SPEAK) {
+        s->lastCharId = current->data.speak.charId;
         DrawSpeakUI(s, &current->data.speak);
         if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE) || IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             if (!s->isTextEffectDone) {
@@ -190,26 +239,43 @@ void UpdateAndDrawScenario(Scenario* s) {
             }
         }
     } else if (current->type == ACTION_QUESTION) {
-        DrawQuestionUI(&current->data.question);
-        int choice = -1;
-        if (IsKeyPressed(KEY_ONE)) choice = 0;
-        else if (IsKeyPressed(KEY_TWO)) choice = 1;
-        else if (IsKeyPressed(KEY_THREE)) choice = 2;
-        else if (IsKeyPressed(KEY_FOUR)) choice = 3;
-        if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-            for (int i = 0; i < MAX_OPTIONS; i++) {
-                Rectangle rect = { 50, (float)(180 + i * 50), (float)(GetScreenWidth() - 100), 40 };
-                if (CheckCollisionPointRec(GetMousePosition(), rect)) {
-                    choice = i;
-                    break;
+        DrawQuestionUI(s, &current->data.question);
+        
+        if (s->showFeedback) {
+            s->feedbackTimer += GetFrameTime();
+            if (s->feedbackTimer >= FEEDBACK_DURATION) {
+                s->showFeedback = false;
+                s->feedbackTimer = 0;
+                s->lastChoice = -1;
+                s->currentAction++;
+                s->textProgress = 0;
+                s->textTimer = 0;
+                s->isTextEffectDone = false;
+            }
+        } else {
+            int choice = -1;
+            if (IsKeyPressed(KEY_ONE)) choice = 0;
+            else if (IsKeyPressed(KEY_TWO)) choice = 1;
+            else if (IsKeyPressed(KEY_THREE)) choice = 2;
+            else if (IsKeyPressed(KEY_FOUR)) choice = 3;
+            
+            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                int sw = GetScreenWidth();
+                int sh = GetScreenHeight();
+                for (int i = 0; i < MAX_OPTIONS; i++) {
+                    Rectangle rect = { 50, (float)(sh/4 + 80 + i * 55), (float)(sw - 100), 45 };
+                    if (CheckCollisionPointRec(GetMousePosition(), rect)) {
+                        choice = i;
+                        break;
+                    }
                 }
             }
-        }
-        if (choice != -1) {
-            s->currentAction++;
-            s->textProgress = 0;
-            s->textTimer = 0;
-            s->isTextEffectDone = false;
+
+            if (choice != -1) {
+                s->showFeedback = true;
+                s->lastChoice = choice;
+                s->feedbackTimer = 0;
+            }
         }
     }
 
