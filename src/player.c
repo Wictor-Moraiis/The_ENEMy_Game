@@ -15,9 +15,16 @@ void LoadAllSaves(PlayerStats saves[MAX_SAVES]) {
     if (!file) return;
 
     int slot;
-    while (fscanf(file, "%d|%[^|]|%d|%d\n", &slot, saves[slot].name, &saves[slot].level, &saves[slot].lives) != EOF) {
+    char name[MAX_NAME_LENGTH];
+    int level, lives;
+    
+    // Formato: slot|nome|level|lives
+    while (fscanf(file, "%d|%[^|]|%d|%d\n", &slot, name, &level, &lives) != EOF) {
         if (slot >= 0 && slot < MAX_SAVES) {
             saves[slot].active = true;
+            strncpy(saves[slot].name, name, MAX_NAME_LENGTH - 1);
+            saves[slot].level = level;
+            saves[slot].lives = lives;
         }
     }
 

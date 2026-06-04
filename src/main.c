@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdio.h>
 
-typedef enum { SCREEN_SPLASH, SCREEN_SAVE_SELECT, SCREEN_NEW_GAME, SCREEN_GAME } GameScreen;
+typedef enum { SCREEN_SPLASH, SCREEN_SAVE_SELECT, SCREEN_NEW_GAME, SCREEN_GAME, SCREEN_CONTINUE_RESTART } GameScreen;
 
 int main() {
     const int screenWidth = 800;
@@ -62,10 +62,36 @@ int main() {
                         selectedSlot = i;
                         if (saves[i].active) {
                             currentPlayer = saves[i];
-                            currentScreen = SCREEN_GAME;
+                            currentScreen = SCREEN_CONTINUE_RESTART;
                         } else {
                             currentScreen = SCREEN_NEW_GAME;
                         }
+                    }
+                }
+                break;
+
+            case SCREEN_CONTINUE_RESTART:
+                if (IsKeyPressed(KEY_C)) {
+                    currentScreen = SCREEN_GAME;
+                } else if (IsKeyPressed(KEY_R)) {
+                    currentPlayer.level = 1; // Reinicia para o nível 1 (Tutorial)
+                    SavePlayer(&currentPlayer, selectedSlot);
+                    currentScreen = SCREEN_GAME;
+                }
+                
+                // Suporte a Mouse
+                if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                    int sw = GetScreenWidth();
+                    int sh = GetScreenHeight();
+                    Rectangle rectCont = { (float)sw/2 - 210, (float)sh/2, 200, 50 };
+                    Rectangle rectRein = { (float)sw/2 + 10, (float)sh/2, 200, 50 };
+                    
+                    if (CheckCollisionPointRec(GetMousePosition(), rectCont)) {
+                        currentScreen = SCREEN_GAME;
+                    } else if (CheckCollisionPointRec(GetMousePosition(), rectRein)) {
+                        currentPlayer.level = 1;
+                        SavePlayer(&currentPlayer, selectedSlot);
+                        currentScreen = SCREEN_GAME;
                     }
                 }
                 break;
@@ -134,6 +160,29 @@ int main() {
                     
                     DrawText(label, (int)rect.x + 20, (int)rect.y + 15, 20, WHITE);
                 }
+            }
+            else if (currentScreen == SCREEN_CONTINUE_RESTART) {
+                const char* title = TextFormat("OLÁ, %s!", currentPlayer.name);
+                const char* msg = "DESEJA CONTINUAR DE ONDE PAROU OU REINICIAR?";
+                DrawText(title, sw/2 - MeasureText(title, 25)/2, sh/2 - 100, 25, GOLD);
+                DrawText(msg, sw/2 - MeasureText(msg, 18)/2, sh/2 - 60, 18, WHITE);
+
+                Rectangle rectCont = { (float)sw/2 - 210, (float)sh/2, 200, 50 };
+                Rectangle rectRein = { (float)sw/2 + 10, (float)sh/2, 200, 50 };
+
+                bool hoverC = CheckCollisionPointRec(GetMousePosition(), rectCont);
+                bool hoverR = CheckCollisionPointRec(GetMousePosition(), rectRein);
+
+                DrawRectangleRec(rectCont, hoverC ? DARKGRAY : BLACK);
+                DrawRectangleLinesEx(rectCont, 2, hoverC ? GOLD : GRAY);
+                DrawText("[C] CONTINUAR", (int)rectCont.x + 25, (int)rectCont.y + 15, 18, WHITE);
+
+                DrawRectangleRec(rectRein, hoverR ? DARKGRAY : BLACK);
+                DrawRectangleLinesEx(rectRein, 2, hoverR ? GOLD : GRAY);
+                DrawText("[R] REINICIAR", (int)rectRein.x + 30, (int)rectRein.y + 15, 18, WHITE);
+                
+                const char* hint = "Dica: Reiniciar voltará ao nível 1.";
+                DrawText(hint, sw/2 - MeasureText(hint, 12)/2, sh/2 + 80, 12, GRAY);
             }
             else if (currentScreen == SCREEN_NEW_GAME) {
                 const char* title = "COM QUE NOME DESEJA SALVAR O GAME?";

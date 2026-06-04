@@ -12,6 +12,8 @@ typedef struct {
     CharacterID enemyId;
     int enemyHP;
     int maxEnemyHP;
+    int ellieHP;
+    int maxEllieHP;
     bool finished;
     bool won;
     int currentQuestion;
@@ -23,12 +25,15 @@ typedef struct {
     float feedbackTimer;
     bool correctHit;
     float damageFlashTimer; // Timer para o filtro vermelho
+    float ellieFlashTimer;   // Timer para flash vermelho na Ellie
 } BattleState;
 
 static void LoadBattleQuestions(BattleState* b, Dificuldade diff) {
     int subject = 1; // Default Artes
-    if (b->enemyId == CHAR_MATH_ENEMY) subject = 1; // Artes/Linguagens
+    if (b->enemyId == CHAR_MATH_ENEMY) subject = 4; // Matemática
     else if (b->enemyId == CHAR_NATUREZA_BOSS) subject = 3; // Natureza
+    else if (b->enemyId == CHAR_MASCARA_ARTES) subject = 1; // Artes/Linguagens
+    else if (b->enemyId == CHAR_VOZ_GRAVE) subject = 2; // Humanas (Exemplo)
 
     // Nível da questão: se diff for DIFICIL, tenta pegar questões nível 3, etc.
     int targetLevel = 1;
@@ -45,11 +50,40 @@ static void LoadBattleQuestions(BattleState* b, Dificuldade diff) {
     }
 }
 
-static int CalculateDamage(int level) {
-    if (level == 1) return 50;  // 4 acertos
-    if (level == 2) return 100; // 2 acertos
-    if (level == 3) return 200; // 1 acerto (Boss)
-    return 40;
+static void DrawWrappedText(const char* text, int x, int y, int maxWidth, int fontSize, Color color) {
+    int currentLine = 0;
+    Font font = GetFontDefault();
+    char temp[1024];
+    int lineStart = 0;
+    int i = 0;
+    int len = strlen(text);
+
+    while (i <= len) {
+        int wordEnd = i;
+        while (text[wordEnd] != '\0' && text[wordEnd] != ' ') wordEnd++;
+        
+        int nextLen = wordEnd - lineStart;
+        if (nextLen >= 1024) nextLen = 1023;
+        strncpy(temp, text + lineStart, nextLen);
+        temp[nextLen] = '\0';
+
+        if (MeasureTextEx(font, temp, (float)fontSize, 1.0f).x > maxWidth) {
+            int lineLen = i - lineStart;
+            if (lineLen > 0) {
+                strncpy(temp, text + lineStart, lineLen);
+                temp[lineLen] = '\0';
+                DrawText(temp, x, y + (currentLine * (fontSize + 5)), fontSize, color);
+                currentLine++;
+                lineStart = i;
+            }
+        }
+
+        if (text[wordEnd] == '\0') {
+            DrawText(text + lineStart, x, y + (currentLine * (fontSize + 5)), fontSize, color);
+            break;
+        }
+        i = wordEnd + 1;
+    }
 }
 
 static void DrawHPBar(int x, int y, int width, int height, int current, int max, const char* label) {
@@ -66,11 +100,13 @@ static void DrawHPBar(int x, int y, int width, int height, int current, int max,
     DrawText(hpText, x + width - MeasureText(hpText, 15), y + height + 5, 15, WHITE);
 }
 
-void StartBattle(CharacterID enemyId, Dificuldade diff) {
+bool StartBattle(CharacterID enemyId, Dificuldade diff) {
     BattleState b = {0};
     b.enemyId = enemyId;
     b.enemyHP = 200;
     b.maxEnemyHP = 200;
+    b.ellieHP = 3;
+    b.maxEllieHP = 3;
     b.finished = false;
     b.won = false;
     b.currentQuestion = 0;
@@ -90,6 +126,12 @@ void StartBattle(CharacterID enemyId, Dificuldade diff) {
             break;
         }
 
+        if (b.ellieHP <= 0) {
+            b.won = false;
+            b.finished = true;
+            break;
+        }
+
         if (b.showFeedback) {
             b.feedbackTimer += GetFrameTime();
             if (b.feedbackTimer >= FEEDBACK_DURATION) {
@@ -97,13 +139,16 @@ void StartBattle(CharacterID enemyId, Dificuldade diff) {
                 b.feedbackTimer = 0;
                 
                 if (b.correctHit) {
-                    int damage = CalculateDamage(b.questions[b.currentQuestion].level);
-                    b.enemyHP -= damage;
+                    b.enemyHP -= 40;
+                } else {
+                    b.ellieHP--;
+                    b.ellieFlashTimer = 0.5f;
                 }
                 
                 b.currentQuestion++;
                 if (b.currentQuestion >= b.questionCount && b.enemyHP > 0) {
-                    // Loop questions if needed or fail battle
+                    // Recarregar questões se acabarem e o inimigo ainda estiver vivo
+                    LoadBattleQuestions(&b, diff);
                     b.currentQuestion = 0; 
                 }
             }
@@ -117,8 +162,19 @@ void StartBattle(CharacterID enemyId, Dificuldade diff) {
             if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
                 int sw = GetScreenWidth();
                 int sh = GetScreenHeight();
+                
+                QuestionAction* q = &b.questions[b.currentQuestion];
+                int boxWidth = 400;
+                int padding = 20;
+                int charsPerLine = (boxWidth - padding * 2) / 10;
+                int lines = 1 + (int)(strlen(q->question) / charsPerLine);
+                int questionHeight = lines * 25; // 25 = fontSize + 5
+                int optionsHeight = 4 * 45;
+                int boxHeight = questionHeight + optionsHeight + padding * 2;
+                int boxY = sh/2 - boxHeight/2;
+
                 for (int i = 0; i < MAX_OPTIONS; i++) {
-                    Rectangle rect = { (float)sw - 400, (float)(sh/2 + 20 + i * 45), 350, 35 };
+                    Rectangle rect = { (float)sw - boxWidth, (float)(boxY + questionHeight + padding + i * 45), 350, 35 };
                     if (CheckCollisionPointRec(GetMousePosition(), rect)) {
                         choice = i;
                         break;
@@ -135,6 +191,7 @@ void StartBattle(CharacterID enemyId, Dificuldade diff) {
         }
 
         if (b.damageFlashTimer > 0) b.damageFlashTimer -= GetFrameTime();
+        if (b.ellieFlashTimer > 0) b.ellieFlashTimer -= GetFrameTime();
 
         // --- Draw ---
         int sw = GetScreenWidth();
@@ -162,19 +219,35 @@ void StartBattle(CharacterID enemyId, Dificuldade diff) {
             // Ellie (Primeiro Plano - Baixo Esquerda)
             if (ellie && ellie->texture.id > 0) {
                 float ellieScale = 1.0f; 
-                Vector2 elliePos = { 50, (float)sh - (ellie->texture.height * ellieScale) - 100 };
-                DrawTextureEx(ellie->texture, elliePos, 0, ellieScale, WHITE);
-                DrawHPBar(100, sh - 60, 200, 15, 3, 3, "Ellie (Vidas)");
+                float offsetX = (b.ellieFlashTimer > 0) ? (float)sin(GetTime() * 40) * 5 : 0;
+                Vector2 elliePos = { 50 + offsetX, (float)sh - (ellie->texture.height * ellieScale) - 100 };
+                Color tint = (b.ellieFlashTimer > 0) ? RED : WHITE;
+                DrawTextureEx(ellie->texture, elliePos, 0, ellieScale, tint);
+                DrawHPBar(100, sh - 60, 200, 15, b.ellieHP, b.maxEllieHP, "Ellie (Vidas)");
             }
 
             // Question UI
             QuestionAction* q = &b.questions[b.currentQuestion];
-            DrawRectangle(sw - 420, sh/2 - 50, 400, 280, Fade(BLACK, 0.7f));
-            DrawRectangleLines(sw - 420, sh/2 - 50, 400, 280, WHITE);
-            DrawText(q->question, sw - 400, sh/2 - 30, 20, GOLD);
+            int fontSize = 20;
+            int boxWidth = 400;
+            int padding = 20;
+            
+            // Estimativa de altura: 10 pixels por char é conservador para wrap
+            int charsPerLine = (boxWidth - padding * 2) / 10;
+            int lines = 1 + (int)(strlen(q->question) / charsPerLine);
+            int questionHeight = lines * (fontSize + 5);
+            int optionsHeight = 4 * 45; // 4 opções de 45px de altura
+            int boxHeight = questionHeight + optionsHeight + padding * 2;
+
+            int boxY = sh/2 - boxHeight/2; // Centraliza verticalmente o box
+
+            DrawRectangle(sw - boxWidth - 20, boxY, boxWidth, boxHeight, Fade(BLACK, 0.8f));
+            DrawRectangleLines(sw - boxWidth - 20, boxY, boxWidth, boxHeight, WHITE);
+            
+            DrawWrappedText(q->question, sw - boxWidth, boxY + padding, boxWidth - padding * 2, fontSize, GOLD);
 
             for (int i = 0; i < 4; i++) {
-                Rectangle rect = { (float)sw - 400, (float)(sh/2 + 20 + i * 45), 350, 35 };
+                Rectangle rect = { (float)sw - boxWidth, (float)(boxY + questionHeight + padding + i * 45), 350, 35 };
                 Color boxColor = BLACK;
                 Color textColor = WHITE;
 
@@ -215,7 +288,24 @@ void StartBattle(CharacterID enemyId, Dificuldade diff) {
                 DrawText(t3, GetScreenWidth()/2 - s3/2, GetScreenHeight()/2 + 40, 15, GRAY);
             EndDrawing();
         }
+    } else if (b.finished && !b.won) {
+        float loseTimer = 0;
+        const char* t1 = "GAME OVER";
+        const char* t2 = "A PRESSÃO FOI DEMAIS...";
+        
+        int s1 = MeasureText(t1, 50);
+        int s2 = MeasureText(t2, 20);
+
+        while (loseTimer < 3.0f && !WindowShouldClose()) {
+            loseTimer += GetFrameTime();
+            BeginDrawing();
+                ClearBackground(BLACK);
+                DrawText(t1, GetScreenWidth()/2 - s1/2, GetScreenHeight()/2 - 40, 50, RED);
+                DrawText(t2, GetScreenWidth()/2 - s2/2, GetScreenHeight()/2 + 20, 20, RAYWHITE);
+            EndDrawing();
+        }
     }
 
     UnloadTexture(bg);
+    return b.won;
 }

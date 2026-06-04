@@ -14,6 +14,7 @@ typedef struct {
 } DBQuestion;
 
 void InitQuestionDatabase();
+void ResetUsedQuestions();
 int GetRandomQuestions(QuestionAction* output, int count, int level, int subject);
 
 const DBQuestion* GetInternalQuestions();
