@@ -5,6 +5,6 @@
 #include "types.h"
 #include "scenario.h"
 
-void StartBattle(CharacterID enemyId, Dificuldade diff);
+bool StartBattle(CharacterID enemyId, Dificuldade diff);
 
 #endif
