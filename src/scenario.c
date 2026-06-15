@@ -144,7 +144,12 @@ static void DrawQuestionUI(Scenario* s, QuestionAction* q) {
 
     DrawCharacter(s->lastCharId, true);
 
-    DrawText(q->question, 50, sh/4, 22, WHITE);
+    int fontSize = 22;
+    int margin = 50;
+    int maxWidth = sw - (margin * 2);
+    
+    DrawWrappedText(q->question, margin, sh/4, maxWidth, fontSize, WHITE, (int)strlen(q->question));
+    
     char levelText[20];
     sprintf(levelText, "Nível: %d", q->level);
     DrawText(levelText, sw - 120, 20, 15, RED);

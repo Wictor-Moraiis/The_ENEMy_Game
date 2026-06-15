@@ -1,0 +1,303 @@
+        -:    0:Source:src/scenario.c
+        -:    0:Graph:src/scenario.gcno
+        -:    0:Data:src/scenario.gcda
+        -:    0:Runs:1
+        -:    1:#include "scenario.h"
+        -:    2:#include <string.h>
+        -:    3:#include <stdio.h>
+        -:    4:
+        -:    5:#define TEXT_SPEED 0.03f
+        -:    6:#define BOX_MARGIN 50
+        -:    7:#define BOX_PADDING 20
+        -:    8:#define FEEDBACK_DURATION 1.5f // Tempo que a resposta correta/errada fica na tela
+        -:    9:
+        3:   10:Scenario CreateScenario() {
+        3:   11:    Scenario s = {0};
+        3:   12:    s.actionCount = 0;
+        3:   13:    s.currentAction = 0;
+        3:   14:    s.completed = false;
+        3:   15:    s.textProgress = 0;
+        3:   16:    s.textTimer = 0;
+        3:   17:    s.isTextEffectDone = false;
+        3:   18:    s.currentBg = (Texture2D){0};
+        3:   19:    strcpy(s.currentBgPath, "");
+        3:   20:    s.showFeedback = false;
+        3:   21:    s.lastChoice = -1;
+        3:   22:    s.feedbackTimer = 0;
+        3:   23:    s.lastCharId = CHAR_NONE;
+        3:   24:    return s;
+        -:   25:}
+        -:   26:
+        1:   27:void AddSpeak(Scenario* s, CharacterID charId, const char* text) {
+        1:   28:    if (s->actionCount >= MAX_ACTIONS) return;
+        1:   29:    ScenarioAction* action = &s->actions[s->actionCount++];
+        1:   30:    action->type = ACTION_SPEAK;
+        1:   31:    action->data.speak.charId = charId;
+        1:   32:    strncpy(action->data.speak.text, text, sizeof(action->data.speak.text) - 1);
+        1:   33:}
+        -:   34:
+        1:   35:void AddQuestion(Scenario* s, const char* question, const char* options[MAX_OPTIONS], int correctIndex, int level) {
+        1:   36:    if (s->actionCount >= MAX_ACTIONS) return;
+        1:   37:    ScenarioAction* action = &s->actions[s->actionCount++];
+        1:   38:    action->type = ACTION_QUESTION;
+        1:   39:    strncpy(action->data.question.question, question, sizeof(action->data.question.question) - 1);
+        5:   40:    for (int i = 0; i < MAX_OPTIONS; i++) {
+        4:   41:        strncpy(action->data.question.options[i], options[i], sizeof(action->data.question.options[i]) - 1);
+        4:   42:    }
+        1:   43:    action->data.question.correctIndex = correctIndex;
+        1:   44:    action->data.question.level = level;
+        1:   45:}
+        -:   46:
+    #####:   47:void AddBackground(Scenario* s, const char* imagePath) {
+    #####:   48:    if (s->actionCount >= MAX_ACTIONS) return;
+    #####:   49:    ScenarioAction* action = &s->actions[s->actionCount++];
+    #####:   50:    action->type = ACTION_BACKGROUND;
+    #####:   51:    strncpy(action->data.background.imagePath, imagePath, sizeof(action->data.background.imagePath) - 1);
+    #####:   52:}
+        -:   53:
+    #####:   54:static void DrawWrappedText(const char* text, int x, int y, int maxWidth, int fontSize, Color color, int progress) {
+    #####:   55:    int currentLine = 0;
+        -:   56:    char buffer[1024];
+    #####:   57:    strncpy(buffer, text, progress);
+    #####:   58:    buffer[progress] = '\0';
+    #####:   59:    Font font = GetFontDefault();
+        -:   60:    char temp[1024];
+    #####:   61:    int lineStart = 0;
+    #####:   62:    int i = 0;
+        -:   63:
+    #####:   64:    while (buffer[i] != '\0') {
+    #####:   65:        int wordEnd = i;
+    #####:   66:        while (buffer[wordEnd] != '\0' && buffer[wordEnd] != ' ') wordEnd++;
+    #####:   67:        int nextLen = wordEnd - lineStart;
+    #####:   68:        strncpy(temp, buffer + lineStart, nextLen);
+    #####:   69:        temp[nextLen] = '\0';
+    #####:   70:        if (MeasureTextEx(font, temp, (float)fontSize, 1.0f).x > maxWidth) {
+    #####:   71:            int lineLen = i - lineStart;
+    #####:   72:            strncpy(temp, buffer + lineStart, lineLen);
+    #####:   73:            temp[lineLen] = '\0';
+    #####:   74:            DrawText(temp, x, y + (currentLine * (fontSize + 5)), fontSize, color);
+    #####:   75:            currentLine++;
+    #####:   76:            lineStart = i;
+    #####:   77:        }
+    #####:   78:        if (buffer[wordEnd] == '\0') {
+    #####:   79:            DrawText(buffer + lineStart, x, y + (currentLine * (fontSize + 5)), fontSize, color);
+    #####:   80:            break;
+        -:   81:        }
+    #####:   82:        i = wordEnd + 1;
+        -:   83:    }
+    #####:   84:}
+        -:   85:
+    #####:   86:static void DrawCharacter(CharacterID charId, bool isQuestion) {
+    #####:   87:    if (charId == CHAR_NONE) return;
+    #####:   88:    Character* character = GetCharacter(charId);
+    #####:   89:    if (!character || character->texture.id <= 0) return;
+        -:   90:
+    #####:   91:    int sw = GetScreenWidth();
+    #####:   92:    int sh = GetScreenHeight();
+    #####:   93:    float scale = (charId == CHAR_ELLIE) ? 1.0f : 4.0f;
+        -:   94:    
+        -:   95:    // Se for pergunta, posiciona mais à direita e sem a caixa de diálogo
+        -:   96:    Vector2 pos;
+    #####:   97:    if (isQuestion) {
+    #####:   98:        pos = (Vector2){ (float)sw - (character->texture.width * scale) - 20, (float)sh - (character->texture.height * scale) - 20 };
+    #####:   99:    } else {
+        -:  100:        // Altura estimada da caixa de diálogo (120-150px)
+    #####:  101:        pos = (Vector2){ (float)sw - (character->texture.width * scale) - 50, (float)sh - 120 - (character->texture.height * scale) - 20 };
+        -:  102:    }
+        -:  103:    
+    #####:  104:    DrawTextureEx(character->texture, pos, 0.0f, scale, WHITE);
+    #####:  105:}
+        -:  106:
+    #####:  107:static void DrawSpeakUI(Scenario* s, SpeakAction* speak) {
+    #####:  108:    int screenWidth = GetScreenWidth();
+    #####:  109:    int screenHeight = GetScreenHeight();
+    #####:  110:    Character* character = GetCharacter(speak->charId);
+    #####:  111:    const char* name = character ? character->name : "Desconhecido";
+        -:  112:
+    #####:  113:    if (!s->isTextEffectDone) {
+    #####:  114:        s->textTimer += GetFrameTime();
+    #####:  115:        if (s->textTimer >= TEXT_SPEED) {
+    #####:  116:            s->textTimer = 0;
+    #####:  117:            s->textProgress++;
+    #####:  118:            if (s->textProgress >= (int)strlen(speak->text)) {
+    #####:  119:                s->textProgress = (int)strlen(speak->text);
+    #####:  120:                s->isTextEffectDone = true;
+    #####:  121:            }
+    #####:  122:        }
+    #####:  123:    }
+        -:  124:
+    #####:  125:    DrawCharacter(speak->charId, false);
+        -:  126:    
+    #####:  127:    int maxWidth = screenWidth - (BOX_MARGIN * 2) - (BOX_PADDING * 2);
+    #####:  128:    int fontSize = 20;
+    #####:  129:    int lineCount = 1 + (int)(strlen(speak->text) * 10 / maxWidth);
+    #####:  130:    int boxHeight = (lineCount * (fontSize + 5)) + (BOX_PADDING * 2) + 30;
+    #####:  131:    if (boxHeight < 120) boxHeight = 120;
+        -:  132:
+    #####:  133:    Rectangle box = { BOX_MARGIN, (float)screenHeight - boxHeight - 30, (float)screenWidth - (BOX_MARGIN * 2), (float)boxHeight };
+    #####:  134:    DrawRectangleRec(box, Fade(BLACK, 0.8f));
+    #####:  135:    DrawRectangleLinesEx(box, 1, WHITE);
+    #####:  136:    DrawText(name, (int)box.x + BOX_PADDING, (int)box.y + 10, 20, GOLD);
+    #####:  137:    DrawWrappedText(speak->text, (int)box.x + BOX_PADDING, (int)box.y + 45, maxWidth, fontSize, RAYWHITE, s->textProgress);
+    #####:  138:    if (s->isTextEffectDone) DrawText("Pressione [ENTER]", (int)box.x + (int)box.width - 130, (int)box.y + (int)box.height - 20, 12, GRAY);
+    #####:  139:}
+        -:  140:
+    #####:  141:static void DrawQuestionUI(Scenario* s, QuestionAction* q) {
+    #####:  142:    int sw = GetScreenWidth();
+    #####:  143:    int sh = GetScreenHeight();
+        -:  144:
+    #####:  145:    DrawCharacter(s->lastCharId, true);
+        -:  146:
+    #####:  147:    int fontSize = 22;
+    #####:  148:    int margin = 50;
+    #####:  149:    int maxWidth = sw - (margin * 2);
+        -:  150:    
+    #####:  151:    DrawWrappedText(q->question, margin, sh/4, maxWidth, fontSize, WHITE, (int)strlen(q->question));
+        -:  152:    
+        -:  153:    char levelText[20];
+    #####:  154:    sprintf(levelText, "Nível: %d", q->level);
+    #####:  155:    DrawText(levelText, sw - 120, 20, 15, RED);
+        -:  156:
+    #####:  157:    for (int i = 0; i < MAX_OPTIONS; i++) {
+    #####:  158:        Rectangle rect = { 50, (float)(sh/4 + 80 + i * 55), (float)(sw - 100), 45 };
+    #####:  159:        bool mouseOver = CheckCollisionPointRec(GetMousePosition(), rect);
+        -:  160:        
+    #####:  161:        Color boxColor = BLACK;
+    #####:  162:        Color outlineColor = GRAY;
+    #####:  163:        Color textColor = WHITE;
+        -:  164:
+    #####:  165:        if (s->showFeedback) {
+    #####:  166:            if (i == q->correctIndex) {
+    #####:  167:                boxColor = Fade(GREEN, 0.6f);
+    #####:  168:                outlineColor = GREEN;
+    #####:  169:                textColor = WHITE;
+    #####:  170:            } else if (i == s->lastChoice) {
+    #####:  171:                boxColor = Fade(RED, 0.6f);
+    #####:  172:                outlineColor = RED;
+    #####:  173:                textColor = WHITE;
+    #####:  174:            }
+    #####:  175:        } else if (mouseOver) {
+    #####:  176:            boxColor = DARKGRAY;
+    #####:  177:            outlineColor = GOLD;
+    #####:  178:            textColor = GOLD;
+    #####:  179:        }
+        -:  180:
+    #####:  181:        DrawRectangleRec(rect, boxColor);
+    #####:  182:        DrawRectangleLinesEx(rect, 1, outlineColor);
+        -:  183:        
+        -:  184:        char optionText[150];
+    #####:  185:        sprintf(optionText, "[%d] %s", i + 1, q->options[i]);
+    #####:  186:        DrawText(optionText, (int)rect.x + 20, (int)rect.y + 10, 18, textColor);
+    #####:  187:    }
+    #####:  188:}
+        -:  189:
+    #####:  190:void UpdateAndDrawScenario(Scenario* s) {
+    #####:  191:    if (s->completed || s->currentAction >= s->actionCount) {
+    #####:  192:        s->completed = true;
+    #####:  193:        return;
+        -:  194:    }
+        -:  195:
+        -:  196:    // Processar todas as mudanças de background sequenciais e atualizar lastCharId
+    #####:  197:    while (s->currentAction < s->actionCount) {
+    #####:  198:        ScenarioAction* current = &s->actions[s->currentAction];
+    #####:  199:        if (current->type == ACTION_BACKGROUND) {
+    #####:  200:            if (s->currentBg.id > 0) UnloadTexture(s->currentBg);
+    #####:  201:            if (strlen(current->data.background.imagePath) > 0) {
+    #####:  202:                s->currentBg = LoadTexture(current->data.background.imagePath);
+    #####:  203:                strcpy(s->currentBgPath, current->data.background.imagePath);
+    #####:  204:            } else {
+    #####:  205:                s->currentBg = (Texture2D){0};
+    #####:  206:                strcpy(s->currentBgPath, "");
+        -:  207:            }
+    #####:  208:            s->currentAction++;
+    #####:  209:        } else {
+    #####:  210:            break;
+        -:  211:        }
+        -:  212:    }
+        -:  213:
+    #####:  214:    if (s->currentAction >= s->actionCount) {
+    #####:  215:        s->completed = true;
+    #####:  216:        return;
+        -:  217:    }
+        -:  218:
+    #####:  219:    if (s->currentBg.id > 0) {
+    #####:  220:        DrawTexturePro(s->currentBg, (Rectangle){0, 0, (float)s->currentBg.width, (float)s->currentBg.height},
+    #####:  221:                       (Rectangle){0, 0, (float)GetScreenWidth(), (float)GetScreenHeight()}, (Vector2){0, 0}, 0, WHITE);
+    #####:  222:    } else {
+    #####:  223:        ClearBackground(BLACK);
+        -:  224:    }
+        -:  225:
+    #####:  226:    if (IsKeyPressed(KEY_S)) {
+    #####:  227:        s->completed = true;
+    #####:  228:        return;
+        -:  229:    }
+        -:  230:
+    #####:  231:    ScenarioAction* current = &s->actions[s->currentAction];
+    #####:  232:    if (current->type == ACTION_SPEAK) {
+    #####:  233:        s->lastCharId = current->data.speak.charId;
+    #####:  234:        DrawSpeakUI(s, &current->data.speak);
+    #####:  235:        if (IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE) || IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+    #####:  236:            if (!s->isTextEffectDone) {
+    #####:  237:                s->textProgress = (int)strlen(current->data.speak.text);
+    #####:  238:                s->isTextEffectDone = true;
+    #####:  239:            } else {
+    #####:  240:                s->currentAction++;
+    #####:  241:                s->textProgress = 0;
+    #####:  242:                s->textTimer = 0;
+    #####:  243:                s->isTextEffectDone = false;
+        -:  244:            }
+    #####:  245:        }
+    #####:  246:    } else if (current->type == ACTION_QUESTION) {
+    #####:  247:        DrawQuestionUI(s, &current->data.question);
+        -:  248:        
+    #####:  249:        if (s->showFeedback) {
+    #####:  250:            s->feedbackTimer += GetFrameTime();
+    #####:  251:            if (s->feedbackTimer >= FEEDBACK_DURATION) {
+    #####:  252:                s->showFeedback = false;
+    #####:  253:                s->feedbackTimer = 0;
+    #####:  254:                s->lastChoice = -1;
+    #####:  255:                s->currentAction++;
+    #####:  256:                s->textProgress = 0;
+    #####:  257:                s->textTimer = 0;
+    #####:  258:                s->isTextEffectDone = false;
+    #####:  259:            }
+    #####:  260:        } else {
+    #####:  261:            int choice = -1;
+    #####:  262:            if (IsKeyPressed(KEY_ONE)) choice = 0;
+    #####:  263:            else if (IsKeyPressed(KEY_TWO)) choice = 1;
+    #####:  264:            else if (IsKeyPressed(KEY_THREE)) choice = 2;
+    #####:  265:            else if (IsKeyPressed(KEY_FOUR)) choice = 3;
+        -:  266:            
+    #####:  267:            if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+    #####:  268:                int sw = GetScreenWidth();
+    #####:  269:                int sh = GetScreenHeight();
+    #####:  270:                for (int i = 0; i < MAX_OPTIONS; i++) {
+    #####:  271:                    Rectangle rect = { 50, (float)(sh/4 + 80 + i * 55), (float)(sw - 100), 45 };
+    #####:  272:                    if (CheckCollisionPointRec(GetMousePosition(), rect)) {
+    #####:  273:                        choice = i;
+    #####:  274:                        break;
+        -:  275:                    }
+    #####:  276:                }
+    #####:  277:            }
+        -:  278:
+    #####:  279:            if (choice != -1) {
+    #####:  280:                s->showFeedback = true;
+    #####:  281:                s->lastChoice = choice;
+    #####:  282:                s->feedbackTimer = 0;
+    #####:  283:            }
+        -:  284:        }
+    #####:  285:    }
+        -:  286:
+    #####:  287:    if (s->currentAction >= s->actionCount) s->completed = true;
+    #####:  288:}
+        -:  289:
+    #####:  290:bool IsScenarioFinished(Scenario* s) {
+    #####:  291:    return s->completed;
+        -:  292:}
+        -:  293:
+    #####:  294:void UnloadScenarioResources(Scenario* s) {
+    #####:  295:    if (s->currentBg.id > 0) {
+    #####:  296:        UnloadTexture(s->currentBg);
+    #####:  297:        s->currentBg = (Texture2D){0};
+    #####:  298:    }
+    #####:  299:}

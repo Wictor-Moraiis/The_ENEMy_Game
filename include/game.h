@@ -10,8 +10,8 @@
 
 // Protótipos de fluxo de jogo
 void ExecutarJogo(PlayerStats* player, int slot);
-void IniciarTutorial();
-void IniciarNivel1();
-void IniciarNivel2();
+bool IniciarTutorial();
+bool IniciarNivel1();
+bool IniciarNivel2();
 
 #endif

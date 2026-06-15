@@ -1,0 +1,48 @@
+        -:    0:Source:src/character.c
+        -:    0:Graph:src/character.gcno
+        -:    0:Data:src/character.gcda
+        -:    0:Runs:1
+        -:    1:#include "character.h"
+        -:    2:#include <string.h>
+        -:    3:
+        -:    4:static Character characters[10]; // Ajuste o tamanho conforme necessário
+        -:    5:static int charCount = 0;
+        -:    6:
+    #####:    7:void InitCharacters() {
+        -:    8:    // Personagem: Consciência (Sem imagem)
+    #####:    9:    characters[0] = (Character){CHAR_CONSCIENCIA, "Consciência", "", {0}};
+        -:   10:    
+        -:   11:    // Personagem: Voz Grave (Sem imagem)
+    #####:   12:    characters[1] = (Character){CHAR_VOZ_GRAVE, "Voz Grave", "", {0}};
+        -:   13:    
+        -:   14:    // Personagem: Máscara de Artes
+    #####:   15:    characters[2] = (Character){CHAR_MASCARA_ARTES, "Roger Gramathor", "assets/graphics/enemy_languages.png", {0}};
+        -:   16:    // Carrega a textura se o caminho não for vazio
+    #####:   17:    characters[2].texture = LoadTexture(characters[2].imagePath);
+        -:   18:
+    #####:   19:    characters[3] = (Character){CHAR_ELLIE, "Ellie", "assets/graphics/ellie.png", {0}};
+    #####:   20:    characters[3].texture = LoadTexture(characters[3].imagePath);
+        -:   21:
+    #####:   22:    characters[4] = (Character){CHAR_MATH_ENEMY, "Math Murdock", "assets/graphics/enemy_math.png", {0}};
+    #####:   23:    characters[4].texture = LoadTexture(characters[4].imagePath);
+        -:   24:
+    #####:   25:    characters[5] = (Character){CHAR_NATUREZA_BOSS, "Jefferson Mutagenox", "assets/graphics/enemy_nature.png", {0}};
+    #####:   26:    characters[5].texture = LoadTexture(characters[5].imagePath);
+        -:   27:
+    #####:   28:    charCount = 6;
+    #####:   29:}
+        -:   30:
+    #####:   31:Character* GetCharacter(CharacterID id) {
+    #####:   32:    for (int i = 0; i < charCount; i++) {
+    #####:   33:        if (characters[i].id == id) return &characters[i];
+    #####:   34:    }
+    #####:   35:    return NULL;
+    #####:   36:}
+        -:   37:
+    #####:   38:void UnloadCharacters() {
+    #####:   39:    for (int i = 0; i < charCount; i++) {
+    #####:   40:        if (characters[i].texture.id > 0) {
+    #####:   41:            UnloadTexture(characters[i].texture);
+    #####:   42:        }
+    #####:   43:    }
+    #####:   44:}
