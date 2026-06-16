@@ -1,0 +1,64 @@
+        -:    0:Source:src/player.c
+        -:    0:Graph:src/player.gcno
+        -:    0:Data:src/player.gcda
+        -:    0:Runs:1
+        -:    1:#include "player.h"
+        -:    2:#include <stdio.h>
+        -:    3:#include <string.h>
+        -:    4:#include <sys/stat.h>
+        -:    5:
+        -:    6:#define SAVE_FILE "data/saves.txt"
+        -:    7:
+    #####:    8:void LoadAllSaves(PlayerStats saves[MAX_SAVES]) {
+    #####:    9:    for (int i = 0; i < MAX_SAVES; i++) {
+    #####:   10:        saves[i].active = false;
+    #####:   11:        strcpy(saves[i].name, "Vazio");
+    #####:   12:    }
+        -:   13:
+    #####:   14:    FILE* file = fopen(SAVE_FILE, "r");
+    #####:   15:    if (!file) return;
+        -:   16:
+        -:   17:    int slot;
+        -:   18:    char name[MAX_NAME_LENGTH];
+        -:   19:    int level, lives;
+        -:   20:    
+        -:   21:    // Formato: slot|nome|level|lives
+    #####:   22:    while (fscanf(file, "%d|%[^|]|%d|%d\n", &slot, name, &level, &lives) != EOF) {
+    #####:   23:        if (slot >= 0 && slot < MAX_SAVES) {
+    #####:   24:            saves[slot].active = true;
+    #####:   25:            strncpy(saves[slot].name, name, MAX_NAME_LENGTH - 1);
+    #####:   26:            saves[slot].level = level;
+    #####:   27:            saves[slot].lives = lives;
+    #####:   28:        }
+        -:   29:    }
+        -:   30:
+    #####:   31:    fclose(file);
+    #####:   32:}
+        -:   33:
+    #####:   34:void SavePlayer(PlayerStats* player, int slot) {
+    #####:   35:    if (slot < 0 || slot >= MAX_SAVES) return;
+        -:   36:
+        -:   37:    PlayerStats allSaves[MAX_SAVES];
+    #####:   38:    LoadAllSaves(allSaves);
+        -:   39:    
+    #####:   40:    memcpy(&allSaves[slot], player, sizeof(PlayerStats));
+    #####:   41:    allSaves[slot].active = true;
+        -:   42:
+    #####:   43:    FILE* file = fopen(SAVE_FILE, "w");
+    #####:   44:    if (!file) return;
+        -:   45:
+    #####:   46:    for (int i = 0; i < MAX_SAVES; i++) {
+    #####:   47:        if (allSaves[i].active) {
+    #####:   48:            fprintf(file, "%d|%s|%d|%d\n", i, allSaves[i].name, allSaves[i].level, allSaves[i].lives);
+    #####:   49:        }
+    #####:   50:    }
+        -:   51:
+    #####:   52:    fclose(file);
+    #####:   53:}
+        -:   54:
+        1:   55:void CreateNewPlayer(PlayerStats* player, const char* name) {
+        1:   56:    strncpy(player->name, name, MAX_NAME_LENGTH - 1);
+        1:   57:    player->level = 1;
+        1:   58:    player->lives = 3;
+        1:   59:    player->active = true;
+        1:   60:}
